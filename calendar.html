@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --border: #000000;
+    --text: #000000;
+    --muted: #666666;
+    --hover: #f0f0f0;
+    --today: #000000;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 16px;
+  }
+
+  .app { width: 100%; max-width: 480px; }
+
+  /* HEADER */
+  .header { margin-bottom: 40px; }
+
+  .header-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .header-nav {
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+  }
+
+  .month-year {
+    font-family: 'DM Serif Display', serif;
+    font-size: 42px;
+    line-height: 1;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  .month-year span {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 300;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    display: block;
+  }
+
+  .nav-buttons { display: flex; gap: 2px; margin-left: auto; }
+
+  .nav-btn {
+    background: none;
+    border: 1px solid #000000;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #000000;
+    font-size: 14px;
+    transition: background 0.15s;
+  }
+
+  .nav-btn:hover { background: var(--hover); }
+
+  /* CALENDAR GRID */
+  .calendar { border: 1px solid #000000; background: #e8e8e8; }
+
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-bottom: 1px solid #000000;
+    background: #e8e8e8;
+  }
+
+  .weekday {
+    padding: 12px 0;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: #000000;
+    font-weight: 500;
+  }
+
+  .days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: #e8e8e8;
+  }
+
+  .day-cell {
+    border-right: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.12s;
+    gap: 4px;
+    background: #e8e8e8;
+  }
+
+  .day-cell:nth-child(7n) { border-right: none; }
+  .day-cell:nth-last-child(-n+7):nth-child(7n+1),
+  .day-cell:nth-last-child(-n+7):nth-child(7n+2),
+  .day-cell:nth-last-child(-n+7):nth-child(7n+3),
+  .day-cell:nth-last-child(-n+7):nth-child(7n+4),
+  .day-cell:nth-last-child(-n+7):nth-child(7n+5),
+  .day-cell:nth-last-child(-n+7):nth-child(7n+6),
+  .day-cell:nth-last-child(-n+7):nth-child(7n) { border-bottom: none; }
+
+  .day-cell:hover { background: #d0d0d0; }
+  .day-cell.empty { cursor: default; background: #e8e8e8; }
+  .day-cell.empty:hover { background: #e8e8e8; }
+
+  .day-number {
+    font-size: 13px;
+    font-weight: 400;
+    color: #000000;
+    line-height: 1;
+  }
+
+  .day-cell.today .day-number {
+    background: #000000;
+    color: #ffffff;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+  }
+
+  .day-cell.has-data .dot { display: block; }
+
+  .dot {
+    display: none;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #000000;
+  }
+
+  /* MODAL */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+
+  .overlay.open { display: flex; }
+
+  .modal {
+    background: #ffffff;
+    border: 1px solid #000000;
+    width: 100%;
+    max-width: 320px;
+    padding: 28px;
+    animation: slideUp 0.2s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(12px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  .modal-date {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    margin-bottom: 24px;
+    color: #000000;
+  }
+
+  .modal-date span {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 300;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .slot-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #000000;
+  }
+
+  .slot-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid #000000;
+    gap: 12px;
+    transition: background 0.1s;
+    background: #ffffff;
+  }
+
+  .slot-row:last-child { border-bottom: none; }
+  .slot-row:hover { background: #f5f5f5; }
+
+  .slot-check {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1px solid #000000;
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    transition: background 0.12s;
+    background: #ffffff;
+  }
+
+  .slot-check:checked { background: #000000; }
+
+  .slot-check:checked::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 1px;
+    width: 5px;
+    height: 8px;
+    border: 1.5px solid #ffffff;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+  }
+
+  .slot-label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: #000000;
+    flex: 1;
+    text-transform: uppercase;
+  }
+
+  .counter {
+    display: flex;
+    align-items: center;
+    border: 1px solid #000000;
+  }
+
+  .counter-btn {
+    background: #ffffff;
+    border: none;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #000000;
+    transition: background 0.1s;
+    font-family: 'DM Mono', monospace;
+    line-height: 1;
+  }
+
+  .counter-btn:hover { background: #f0f0f0; }
+
+  .counter-value {
+    width: 28px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+    border-left: 1px solid #000000;
+    border-right: 1px solid #000000;
+    color: #000000;
+    background: #ffffff;
+  }
+
+  .modal-footer {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .close-btn {
+    background: #000000;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .close-btn:hover { opacity: 0.75; }
+
+  .saved-indicator {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .saved-indicator.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="header-title">Calendar</div>
+    <div class="header-nav">
+      <div class="month-year">
+        <span id="year-label"></span>
+        <span id="month-label"></span>
+      </div>
+      <div class="nav-buttons">
+        <button class="nav-btn" id="prev-btn">&#8592;</button>
+        <button class="nav-btn" id="next-btn">&#8594;</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="calendar">
+    <div class="weekdays">
+      <div class="weekday">Lu</div>
+      <div class="weekday">Ma</div>
+      <div class="weekday">Mi</div>
+      <div class="weekday">Jo</div>
+      <div class="weekday">Vi</div>
+      <div class="weekday">Sâ</div>
+      <div class="weekday">Du</div>
+    </div>
+    <div class="days-grid" id="days-grid"></div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-date">
+      <span id="modal-date-label"></span>
+      <span id="modal-day-name"></span>
+    </div>
+    <div class="slot-list" id="slot-list"></div>
+    <div class="modal-footer">
+      <span class="saved-indicator" id="saved-indicator">salvat</span>
+      <button class="close-btn" id="close-btn">Închide</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SLOTS = [
+    { id: 'dimineata', label: 'Dimineata' },
+    { id: 'pranz',     label: 'Pranz' },
+    { id: 'dupamasa',  label: 'Dupamasa' },
+    { id: 'seara',     label: 'Seara' },
+    { id: 'noapte',    label: 'Noapte' },
+  ];
+
+  const MONTHS_RO = ['Ianuarie','Februarie','Martie','Aprilie','Mai','Iunie',
+                     'Iulie','August','Septembrie','Octombrie','Noiembrie','Decembrie'];
+  const DAYS_RO   = ['Duminica','Luni','Marti','Miercuri','Joi','Vineri','Sambata'];
+
+  let currentYear, currentMonth, selectedDateKey;
+  const today = new Date();
+
+  function loadData(dateKey) {
+    const raw = localStorage.getItem('cal_' + dateKey);
+    if (!raw) return defaultData();
+    try { return JSON.parse(raw); } catch(e) { return defaultData(); }
+  }
+
+  function saveData(dateKey, data) {
+    localStorage.setItem('cal_' + dateKey, JSON.stringify(data));
+  }
+
+  function defaultData() {
+    const d = {};
+    SLOTS.forEach(s => { d[s.id] = { checked: false, value: 1 }; });
+    return d;
+  }
+
+  function hasAnyData(dateKey) {
+    const d = loadData(dateKey);
+    return SLOTS.some(s => d[s.id].checked || d[s.id].value !== 1);
+  }
+
+  function renderCalendar() {
+    const grid = document.getElementById('days-grid');
+    grid.innerHTML = '';
+    document.getElementById('year-label').textContent = currentYear;
+    document.getElementById('month-label').textContent = MONTHS_RO[currentMonth];
+
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const offset = (firstDay === 0) ? 6 : firstDay - 1;
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    for (let i = 0; i < offset; i++) {
+      const e = document.createElement('div');
+      e.className = 'day-cell empty';
+      grid.appendChild(e);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const cell = document.createElement('div');
+      cell.className = 'day-cell';
+
+      const isToday = d === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+      if (isToday) cell.classList.add('today');
+
+      const dateKey = currentYear + '-' + String(currentMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      if (hasAnyData(dateKey)) cell.classList.add('has-data');
+
+      const num = document.createElement('div');
+      num.className = 'day-number';
+      num.textContent = d;
+
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+
+      cell.appendChild(num);
+      cell.appendChild(dot);
+      cell.addEventListener('click', () => openModal(dateKey, d));
+      grid.appendChild(cell);
+    }
+  }
+
+  function openModal(dateKey, dayNum) {
+    selectedDateKey = dateKey;
+    const dateObj = new Date(currentYear, currentMonth, dayNum);
+    document.getElementById('modal-date-label').textContent =
+      dayNum + ' ' + MONTHS_RO[currentMonth] + ' ' + currentYear;
+    document.getElementById('modal-day-name').textContent = DAYS_RO[dateObj.getDay()];
+    renderSlots();
+    document.getElementById('overlay').classList.add('open');
+    document.getElementById('saved-indicator').classList.remove('show');
+  }
+
+  function renderSlots() {
+    const data = loadData(selectedDateKey);
+    const list = document.getElementById('slot-list');
+    list.innerHTML = '';
+
+    SLOTS.forEach(slot => {
+      const row = document.createElement('div');
+      row.className = 'slot-row';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'slot-check';
+      cb.checked = data[slot.id].checked;
+      cb.addEventListener('change', autoSave);
+
+      const lbl = document.createElement('div');
+      lbl.className = 'slot-label';
+      lbl.textContent = slot.label;
+
+      const counter = document.createElement('div');
+      counter.className = 'counter';
+
+      const minus = document.createElement('button');
+      minus.className = 'counter-btn';
+      minus.textContent = '\u2212';
+
+      const val = document.createElement('div');
+      val.className = 'counter-value';
+      val.textContent = data[slot.id].value;
+
+      const plus = document.createElement('button');
+      plus.className = 'counter-btn';
+      plus.textContent = '+';
+
+      minus.addEventListener('click', () => {
+        const v = parseInt(val.textContent);
+        if (v > 1) { val.textContent = v - 1; autoSave(); }
+      });
+      plus.addEventListener('click', () => {
+        const v = parseInt(val.textContent);
+        if (v < 10) { val.textContent = v + 1; autoSave(); }
+      });
+
+      counter.appendChild(minus);
+      counter.appendChild(val);
+      counter.appendChild(plus);
+      row.appendChild(cb);
+      row.appendChild(lbl);
+      row.appendChild(counter);
+      list.appendChild(row);
+    });
+  }
+
+  function autoSave() {
+    const rows = document.getElementById('slot-list').querySelectorAll('.slot-row');
+    const data = {};
+    rows.forEach((row, i) => {
+      data[SLOTS[i].id] = {
+        checked: row.querySelector('.slot-check').checked,
+        value: parseInt(row.querySelector('.counter-value').textContent)
+      };
+    });
+    saveData(selectedDateKey, data);
+    const el = document.getElementById('saved-indicator');
+    el.classList.add('show');
+    clearTimeout(window._saveTimer);
+    window._saveTimer = setTimeout(() => el.classList.remove('show'), 1500);
+    renderCalendar();
+  }
+
+  document.getElementById('close-btn').addEventListener('click', () => {
+    document.getElementById('overlay').classList.remove('open');
+  });
+  document.getElementById('overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('overlay'))
+      document.getElementById('overlay').classList.remove('open');
+  });
+  document.getElementById('prev-btn').addEventListener('click', () => {
+    if (--currentMonth < 0) { currentMonth = 11; currentYear--; }
+    renderCalendar();
+  });
+  document.getElementById('next-btn').addEventListener('click', () => {
+    if (++currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderCalendar();
+  });
+
+  currentYear  = today.getFullYear();
+  currentMonth = today.getMonth();
+  renderCalendar();
+</script>
+</body>
+</html>
